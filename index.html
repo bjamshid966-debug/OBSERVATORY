@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OBSERVATORY — Osmon Xaritasi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=JetBrains+Mono:wght@300;400;500&display=swap');
+
+:root{
+  --void: #0a0a16;
+  --deep: #12122a;
+  --deep-2: #1a1a3a;
+  --gold: #d4af6a;
+  --copper: #c77b4d;
+  --parchment: #ede8dc;
+  --dust: #8b87a0;
+  --line: rgba(212,175,106,0.18);
+}
+
+*{margin:0;padding:0;box-sizing:border-box;}
+
+html{scroll-behavior:smooth;}
+
+body{
+  background:var(--void);
+  color:var(--parchment);
+  font-family:'EB Garamond', serif;
+  overflow-x:hidden;
+  cursor:default;
+}
+
+::selection{background:var(--gold);color:var(--void);}
+
+h1,h2,h3,.display{
+  font-family:'Cormorant Garamond', serif;
+  font-weight:500;
+  letter-spacing:0.02em;
+}
+
+.mono{
+  font-family:'JetBrains Mono', monospace;
+  letter-spacing:0.05em;
+}
+
+/* ---------- Starfield background ---------- */
+#stars-canvas{
+  position:fixed;
+  top:0;left:0;
+  width:100%;height:100%;
+  z-index:0;
+  pointer-events:none;
+}
+
+/* ---------- Astrolabe signature element ---------- */
+#astrolabe{
+  position:fixed;
+  bottom:28px;
+  right:28px;
+  width:120px;
+  height:120px;
+  z-index:100;
+  pointer-events:none;
+  opacity:0.9;
+}
+#astrolabe svg{width:100%;height:100%;}
+#astrolabe .ring{
+  transform-origin:60px 60px;
+  transition:transform 0.05s linear;
+}
+#coord-readout{
+  position:fixed;
+  bottom:24px;
+  right:158px;
+  z-index:100;
+  text-align:right;
+  font-size:10px;
+  color:var(--dust);
+  line-height:1.6;
+  pointer-events:none;
+}
+#coord-readout .label{color:var(--gold);}
+
+@media (max-width:720px){
+  #astrolabe{width:72px;height:72px;bottom:16px;right:16px;}
+  #coord-readout{display:none;}
+}
+
+/* ---------- Progress line ---------- */
+#progress-line{
+  position:fixed;
+  top:0;left:0;
+  height:2px;
+  background:linear-gradient(90deg, var(--copper), var(--gold));
+  z-index:200;
+  width:0%;
+}
+
+/* ---------- Nav ---------- */
+nav{
+  position:fixed;
+  top:0;left:0;right:0;
+  z-index:150;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:22px 5vw;
+  mix-blend-mode:difference;
+}
+nav .logo{
+  font-family:'Cormorant Garamond', serif;
+  font-size:20px;
+  letter-spacing:0.3em;
+  color:var(--parchment);
+}
+nav .catalog{
+  font-family:'JetBrains Mono', monospace;
+  font-size:10px;
+  letter-spacing:0.15em;
+  color:var(--dust);
+}
+
+/* ---------- Sections generic ---------- */
+section{
+  position:relative;
+  z-index:1;
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  padding:0 8vw;
+}
+
+.eyebrow{
+  font-family:'JetBrains Mono', monospace;
+  font-size:11px;
+  letter-spacing:0.25em;
+  color:var(--gold);
+  text-transform:uppercase;
+  margin-bottom:18px;
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+.eyebrow::before{
+  content:'';
+  width:28px;height:1px;
+  background:var(--gold);
+}
+
+/* ---------- Hero ---------- */
+#hero{
+  align-items:center;
+  text-align:center;
+}
+#hero .display{
+  font-size:clamp(56px, 12vw, 148px);
+  line-height:0.95;
+  letter-spacing:0.06em;
+  background:linear-gradient(180deg, var(--parchment) 40%, var(--gold) 100%);
+  -webkit-background-clip:text;
+  background-clip:text;
+  -webkit-text-fill-color:transparent;
+}
+#hero .sub{
+  font-style:italic;
+  font-size:clamp(16px,2.4vw,22px);
+  color:var(--dust);
+  margin-top:22px;
+  max-width:620px;
+  margin-left:auto;margin-right:auto;
+}
+#hero .coords{
+  margin-top:44px;
+  font-size:11px;
+  color:var(--dust);
+  letter-spacing:0.2em;
+}
+.scroll-cue{
+  position:absolute;
+  bottom:40px;left:50%;
+  transform:translateX(-50%);
+  font-family:'JetBrains Mono', monospace;
+  font-size:10px;
+  color:var(--dust);
+  letter-spacing:0.2em;
+  display:flex;flex-direction:column;align-items:center;gap:8px;
+}
+.scroll-cue .stick{
+  width:1px;height:32px;
+  background:linear-gradient(var(--gold), transparent);
+  animation:pulse-stick 2s ease-in-out infinite;
+}
+@keyframes pulse-stick{
+  0%,100%{opacity:0.3;}
+  50%{opacity:1;}
+}
+
+/* ---------- Reveal ---------- */
+.reveal{
+  opacity:0;
+  transform:translateY(40px);
+  transition:opacity 1s cubic-bezier(.2,.6,.2,1), transform 1s cubic-bezier(.2,.6,.2,1);
+}
+.reveal.in{
+  opacity:1;
+  transform:translateY(0);
+}
+
+/* ---------- Moon section ---------- */
+#moon{
+  align-items:center;
+}
+.moon-wrap{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:6vw;
+  align-items:center;
+  width:100%;
+  max-width:1200px;
+  margin:0 auto;
+}
+.moon-orb{
+  width:280px;height:280px;
+  border-radius:50%;
+  margin:0 auto;
+  position:relative;
+  background:radial-gradient(circle at 35% 30%, #f4f0e6, #cfc9b8 45%, #6f6b5e 100%);
+  box-shadow:0 0 90px rgba(212,175,106,0.15), inset -30px -20px 50px rgba(0,0,0,0.5);
+  animation:rotate-slow 60s linear infinite;
+}
+.moon-orb::before, .moon-orb::after, .moon-orb .crater3{
+  content:'';
+  position:absolute;
+  border-radius:50%;
+  background:rgba(0,0,0,0.12);
+  box-shadow:inset 4px 4px 6px rgba(0,0,0,0.3);
+}
+.moon-orb::before{width:44px;height:44px;top:60px;left:70px;}
+.moon-orb::after{width:26px;height:26px;top:150px;left:180px;}
+@keyframes rotate-slow{
+  from{filter:hue-rotate(0deg);}
+  to{filter:hue-rotate(8deg);}
+}
+h2.title{
+  font-size:clamp(34px,5vw,58px);
+  margin-bottom:20px;
+}
+p.body-text{
+  font-size:18px;
+  line-height:1.8;
+  color:#cfcadf;
+  max-width:480px;
+}
+.data-row{
+  display:flex;
+  justify-content:space-between;
+  padding:12px 0;
+  border-bottom:1px solid var(--line);
+  font-family:'JetBrains Mono', monospace;
+  font-size:12px;
+}
+.data-row span:first-child{color:var(--dust);}
+.data-row span:last-child{color:var(--gold);}
+.data-list{margin-top:32px;max-width:420px;}
+
+/* ---------- Planets grid ---------- */
+#planets{
+  padding-top:12vh;
+  padding-bottom:12vh;
+}
+.section-head{
+  text-align:center;
+  max-width:640px;
+  margin:0 auto 8vh;
+}
+.planet-grid{
+  display:grid;
+  grid-template-columns:repeat(3, 1fr);
+  gap:2px;
+  background:var(--line);
+  max-width:1200px;
+  margin:0 auto;
+  border:1px solid var(--line);
+}
+.planet-card{
+  background:var(--void);
+  padding:44px 30px;
+  display:flex;
+  flex-direction:column;
+  gap:16px;
+  transition:background 0.4s ease;
+}
+.planet-card:hover{background:var(--deep);}
+.planet-icon{
+  width:64px;height:64px;
+  border-radius:50%;
+  margin-bottom:6px;
+}
+.planet-card h3{
+  font-size:26px;
+  color:var(--parchment);
+}
+.planet-card .num{
+  font-family:'JetBrains Mono', monospace;
+  font-size:11px;
+  color:var(--gold);
+}
+.planet-card p{
+  font-size:15px;
+  color:var(--dust);
+  line-height:1.6;
+}
+.planet-card .stat{
+  font-family:'JetBrains Mono', monospace;
+  font-size:11px;
+  color:var(--copper);
+  margin-top:auto;
+  padding-top:12px;
+}
+
+@media (max-width:900px){
+  .planet-grid{grid-template-columns:1fr;}
+  .moon-wrap{grid-template-columns:1fr;}
+}
+
+/* ---------- Giants section ---------- */
+#giants{
+  align-items:center;
+  background:radial-gradient(ellipse at 50% 50%, var(--deep-2), var(--void) 70%);
+}
+.giants-wrap{
+  max-width:1100px;
+  margin:0 auto;
+  width:100%;
+  display:flex;
+  flex-direction:column;
+  gap:14vh;
+}
+.giant-row{
+  display:grid;
+  grid-template-columns:340px 1fr;
+  gap:6vw;
+  align-items:center;
+}
+.giant-row.reverse{
+  grid-template-columns:1fr 340px;
+}
+.giant-row.reverse .giant-visual{order:2;}
+.giant-visual{
+  width:260px;height:260px;
+  border-radius:50%;
+  position:relative;
+  justify-self:center;
+}
+#jupiter-visual{
+  background:
+    repeating-linear-gradient(180deg,
+      #d9a679 0px, #d9a679 18px,
+      #c9895a 18px, #c9895a 34px,
+      #e8c199 34px, #e8c199 50px,
+      #b87a4f 50px, #b87a4f 68px);
+  box-shadow:0 0 100px rgba(212,175,106,0.12);
+  animation:rotate-slow 50s linear infinite;
+}
+#saturn-visual{
+  width:260px;height:260px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.saturn-core{
+  width:170px;height:170px;
+  border-radius:50%;
+  background:radial-gradient(circle at 35% 30%, #ecd9b0, #c9a876 60%, #8a7550);
+  position:relative;
+  z-index:2;
+}
+.saturn-rings{
+  position:absolute;
+  width:260px;height:80px;
+  border:2px solid rgba(212,175,106,0.5);
+  border-radius:50%;
+  transform:rotate(-18deg);
+  top:50%;left:50%;
+  margin-top:-40px;margin-left:-130px;
+  z-index:1;
+}
+.saturn-rings::before{
+  content:'';
+  position:absolute;
+  inset:14px;
+  border:1px solid rgba(212,175,106,0.3);
+  border-radius:50%;
+}
+
+/* ---------- Nebula / deep space ---------- */
+#nebula{
+  align-items:center;
+  text-align:center;
+  background:
+    radial-gradient(ellipse 60% 40% at 30% 30%, rgba(199,123,77,0.15), transparent 60%),
+    radial-gradient(ellipse 50% 50% at 70% 70%, rgba(139,87,160,0.18), transparent 60%),
+    var(--void);
+}
+#nebula .display{
+  font-size:clamp(38px,6vw,72px);
+  max-width:900px;
+  margin:0 auto;
+}
+#nebula p.body-text{
+  margin:24px auto 0;
+  max-width:560px;
+  text-align:center;
+}
+.catalog-tags{
+  display:flex;
+  gap:14px;
+  justify-content:center;
+  margin-top:40px;
+  flex-wrap:wrap;
+}
+.catalog-tags span{
+  font-family:'JetBrains Mono', monospace;
+  font-size:11px;
+  color:var(--dust);
+  border:1px solid var(--line);
+  padding:8px 16px;
+  border-radius:2px;
+  letter-spacing:0.1em;
+}
+
+/* ---------- Outro / star chart ---------- */
+#outro{
+  align-items:center;
+  text-align:center;
+  padding-bottom:16vh;
+}
+#outro .display{
+  font-size:clamp(30px,5vw,54px);
+  margin-bottom:20px;
+}
+#outro p.body-text{
+  margin:0 auto 40px;
+  text-align:center;
+}
+.cta-btn{
+  font-family:'JetBrains Mono', monospace;
+  font-size:12px;
+  letter-spacing:0.15em;
+  color:var(--void);
+  background:linear-gradient(90deg, var(--gold), var(--copper));
+  border:none;
+  padding:18px 40px;
+  cursor:pointer;
+  transition:transform 0.3s ease, box-shadow 0.3s ease;
+}
+.cta-btn:hover{
+  transform:translateY(-3px);
+  box-shadow:0 10px 30px rgba(212,175,106,0.25);
+}
+footer{
+  padding:40px 8vw;
+  display:flex;
+  justify-content:space-between;
+  font-family:'JetBrains Mono', monospace;
+  font-size:10px;
+  color:var(--dust);
+  letter-spacing:0.1em;
+  border-top:1px solid var(--line);
+  position:relative;z-index:1;
+  flex-wrap:wrap;
+  gap:10px;
+}
+</style>
+</head>
+<body>
+
+<canvas id="stars-canvas"></canvas>
+<div id="progress-line"></div>
+
+<nav>
+  <div class="logo">OBSERVATORY</div>
+  <div class="catalog mono">KATALOG № 1846-Ω</div>
+</nav>
+
+<!-- ASTROLABE -->
+<div id="coord-readout" class="mono">
+  <div><span class="label">RA</span> <span id="ra-val">00h 00m</span></div>
+  <div><span class="label">DEC</span> <span id="dec-val">+00° 00'</span></div>
+</div>
+<div id="astrolabe">
+  <svg viewBox="0 0 120 120">
+    <circle cx="60" cy="60" r="58" fill="none" stroke="var(--line)" stroke-width="1"/>
+    <g class="ring" id="ring1">
+      <circle cx="60" cy="60" r="46" fill="none" stroke="var(--gold)" stroke-width="0.6" opacity="0.6"/>
+      <line x1="60" y1="14" x2="60" y2="24" stroke="var(--gold)" stroke-width="1"/>
+      <line x1="60" y1="96" x2="60" y2="106" stroke="var(--gold)" stroke-width="1"/>
+    </g>
+    <g class="ring" id="ring2">
+      <ellipse cx="60" cy="60" rx="46" ry="18" fill="none" stroke="var(--copper)" stroke-width="0.6" opacity="0.7"/>
+    </g>
+    <circle cx="60" cy="60" r="3" fill="var(--gold)"/>
+  </svg>
+</div>
+
+<!-- HERO -->
+<section id="hero">
+  <div class="eyebrow" style="justify-content:center;">QADIMIY RASADXONA</div>
+  <h1 class="display">OBSERVATORY</h1>
+  <p class="sub">Teleskop ko'zi ochilganda, osmon o'z sirlarini birma-bir ochib beradi. Oydan tortib olis tumanliklargacha — koinot chuqurligiga sayohat.</p>
+  <div class="coords mono">51°28'40" N &nbsp;•&nbsp; 00°00'05" W &nbsp;•&nbsp; EST. 1846</div>
+  <div class="scroll-cue">
+    <span>PASTGA SUR</span>
+    <span class="stick"></span>
+  </div>
+</section>
+
+<!-- MOON -->
+<section id="moon">
+  <div class="moon-wrap">
+    <div class="moon-orb reveal"></div>
+    <div class="reveal">
+      <div class="eyebrow">OBYEKT 001</div>
+      <h2 class="title">Oy</h2>
+      <p class="body-text">Yerning yagona tabiiy yo'ldoshi — kechalari eng yorqin nuqta. Uning yuzasidagi har bir krater, milliardlab yillik zarba tarixini o'zida saqlaydi.</p>
+      <div class="data-list">
+        <div class="data-row"><span>Masofa</span><span>384 400 km</span></div>
+        <div class="data-row"><span>Diametri</span><span>3 474 km</span></div>
+        <div class="data-row"><span>Aylanish davri</span><span>27,3 kun</span></div>
+        <div class="data-row"><span>Kuzatish klassi</span><span>M-I</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- INNER PLANETS -->
+<section id="planets">
+  <div class="section-head reveal">
+    <div class="eyebrow" style="justify-content:center;">ICHKI SAYYORALAR</div>
+    <h2 class="title">Quyosh tizimi kataloglari</h2>
+  </div>
+  <div class="planet-grid reveal">
+    <div class="planet-card">
+      <div class="planet-icon" style="background:radial-gradient(circle at 35% 30%, #b8a99a, #6e6053);"></div>
+      <div class="num mono">№ 01</div>
+      <h3>Merkuriy</h3>
+      <p>Quyoshga eng yaqin sayyora. Kunduzi 430°C, kechasi −180°C — eng keskin harorat tafovuti.</p>
+      <div class="stat mono">88 KUNLIK YIL</div>
+    </div>
+    <div class="planet-card">
+      <div class="planet-icon" style="background:radial-gradient(circle at 35% 30%, #f0d9a8, #c9a15e);"></div>
+      <div class="num mono">№ 02</div>
+      <h3>Venera</h3>
+      <p>Zich, zaharli bulutlar bilan qoplangan. Quyosh tizimidagi eng issiq sayyora yuzasi.</p>
+      <div class="stat mono">225 KUNLIK YIL</div>
+    </div>
+    <div class="planet-card">
+      <div class="planet-icon" style="background:radial-gradient(circle at 35% 30%, #e0876a, #9c3f24);"></div>
+      <div class="num mono">№ 04</div>
+      <h3>Mars</h3>
+      <p>Qizil sayyora. Olimlar hayot izlarini uning muzli qutb qatlamlari ostidan qidirmoqda.</p>
+      <div class="stat mono">687 KUNLIK YIL</div>
+    </div>
+  </div>
+</section>
+
+<!-- GAS GIANTS -->
+<section id="giants">
+  <div class="giants-wrap">
+    <div class="giant-row">
+      <div class="giant-visual" id="jupiter-visual"></div>
+      <div class="reveal">
+        <div class="eyebrow">OBYEKT 05</div>
+        <h2 class="title">Yupiter</h2>
+        <p class="body-text">Quyosh tizimidagi eng ulkan sayyora. Uning "Katta Qizil Dog'i" — uch asrdan beri to'xtamayotgan bo'ron, Yerdan ham kattaroq.</p>
+      </div>
+    </div>
+    <div class="giant-row reverse">
+      <div class="giant-visual" id="saturn-visual">
+        <div class="saturn-rings"></div>
+        <div class="saturn-core"></div>
+      </div>
+      <div class="reveal">
+        <div class="eyebrow">OBYEKT 06</div>
+        <h2 class="title">Saturn</h2>
+        <p class="body-text">Muz va tosh zarralaridan tashkil topgan halqalari bilan mashhur. Halqalarining qalinligi atigi 10 metrga yaqin, ammo kengligi 280 000 km dan oshadi.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- NEBULA -->
+<section id="nebula">
+  <div class="eyebrow" style="justify-content:center;">CHEKKA MINTAQA</div>
+  <h2 class="display">Tumanliklar bo'shlig'i</h2>
+  <p class="body-text">Yulduzlar tug'iladigan va o'ladigan joy. Gaz va chang bulutlari orasida yangi quyosh tizimlari shakllanmoqda — bu manzara millionlab yil oldingi nur.</p>
+  <div class="catalog-tags mono">
+    <span>M42 — Orion</span>
+    <span>NGC 6543 — Mushuk ko'zi</span>
+    <span>M57 — Halqa</span>
+    <span>NGC 2237 — Yurak</span>
+  </div>
+</section>
+
+<!-- OUTRO -->
+<section id="outro">
+  <div class="eyebrow" style="justify-content:center;">SAYOHAT DAVOM ETADI</div>
+  <h2 class="display">Har kecha — yangi kashfiyot</h2>
+  <p class="body-text">Rasadxona derazasi doim ochiq. Teleskopni burang, osmonga qarang — koinot sizni kutmoqda.</p>
+  <button class="cta-btn" onclick="document.getElementById('hero').scrollIntoView({behavior:'smooth'})">YANA YUQORIGA QAYTISH</button>
+</section>
+
+<footer>
+  <span>© OBSERVATORY — OSMON KUZATUV ARXIVI</span>
+  <span>KOORDINATA TIZIMI: J2000.0</span>
+</footer>
+
+<script>
+// ---------- Starfield canvas ----------
+const canvas = document.getElementById('stars-canvas');
+const ctx = canvas.getContext('2d');
+let w, h, stars = [];
+
+function resize(){
+  w = canvas.width = window.innerWidth;
+  h = canvas.height = document.documentElement.scrollHeight;
+  generateStars();
+}
+
+function generateStars(){
+  stars = [];
+  const count = Math.floor((w*h)/9000);
+  for(let i=0;i<count;i++){
+    stars.push({
+      x: Math.random()*w,
+      y: Math.random()*h,
+      r: Math.random()*1.3 + 0.2,
+      baseAlpha: Math.random()*0.6 + 0.2,
+      twinkleSpeed: Math.random()*0.02 + 0.005,
+      phase: Math.random()*Math.PI*2
+    });
+  }
+}
+
+let t = 0;
+function draw(){
+  t += 1;
+  ctx.clearRect(0,0,w,h);
+  for(const s of stars){
+    const alpha = s.baseAlpha + Math.sin(t*s.twinkleSpeed + s.phase)*0.25;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
+    ctx.fillStyle = `rgba(237,232,220,${Math.max(0,alpha)})`;
+    ctx.fill();
+  }
+  requestAnimationFrame(draw);
+}
+
+window.addEventListener('resize', resize);
+resize();
+draw();
+
+// ---------- Scroll progress + astrolabe + coords ----------
+const progressLine = document.getElementById('progress-line');
+const ring1 = document.getElementById('ring1');
+const ring2 = document.getElementById('ring2');
+const raVal = document.getElementById('ra-val');
+const decVal = document.getElementById('dec-val');
+
+function onScroll(){
+  const scrollTop = window.scrollY;
+  const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+  const progress = docHeight > 0 ? (scrollTop / docHeight) : 0;
+
+  progressLine.style.width = (progress*100) + '%';
+
+  const angle1 = progress * 360 * 2;
+  const angle2 = progress * -360 * 1.4;
+  ring1.style.transform = `rotate(${angle1}deg)`;
+  ring2.style.transform = `rotate(${angle2}deg)`;
+
+  const raHours = Math.floor(progress * 24);
+  const raMinutes = Math.floor((progress*24 - raHours) * 60);
+  const decDeg = Math.floor(-90 + progress*180);
+  const decMin = Math.floor(Math.abs((progress*180) % 1) * 60);
+
+  raVal.textContent = `${String(raHours).padStart(2,'0')}h ${String(raMinutes).padStart(2,'0')}m`;
+  decVal.textContent = `${decDeg >= 0 ? '+' : ''}${decDeg}° ${String(decMin).padStart(2,'0')}'`;
+}
+
+window.addEventListener('scroll', onScroll, {passive:true});
+onScroll();
+
+// ---------- Reveal on scroll ----------
+const revealEls = document.querySelectorAll('.reveal');
+const observer = new IntersectionObserver((entries)=>{
+  entries.forEach(entry=>{
+    if(entry.isIntersecting){
+      entry.target.classList.add('in');
+    }
+  });
+}, {threshold:0.15});
+revealEls.forEach(el=>observer.observe(el));
+
+// recalc canvas height after load (fonts etc. may change layout height)
+window.addEventListener('load', ()=>{ resize(); });
+</script>
+
+</body>
+</html>
